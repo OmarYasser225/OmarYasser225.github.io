@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Firmware Update</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background: linear-gradient(135deg, #6a11cb, #2575fc);
+      color: #fff;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .container {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      backdrop-filter: blur(10px);
+      text-align: center;
+      max-width: 400px;
+      width: 100%;
+      animation: fadeIn 1s ease-in-out;
+    }
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 20px;
+      animation: slideIn 1s ease-in-out;
+    }
+    button {
+      background: #2575fc;
+      color: #fff;
+      border: none;
+      padding: 12px 24px;
+      margin: 10px;
+      border-radius: 25px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.3s ease, transform 0.3s ease;
+      animation: fadeIn 1.5s ease-in-out;
+    }
+    button:hover {
+      background: #6a11cb;
+      transform: scale(1.05);
+    }
+    #status {
+      margin-top: 20px;
+      font-weight: bold;
+      color: #ffdd57;
+      animation: fadeIn 2s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes slideIn {
+      from { transform: translateY(-20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Firmware Update</h1>
+    <input type="file" id="codeFile" accept=".bin,.hex" style="display: none;">
+    <button id="uploadButton">Upload Code</button>
+    <button id="flashButton">Flash Code</button>
+    <div id="status"></div>
+  </div>
+
+  <script>
+    // Initialize Supabase client
+    const initializeSupabase = () => {
+      const supabaseUrl = 'https://wngqbymqpbrcpgtuqetr.supabase.co';
+      const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InduZ3FieW1xcGJyY3BndHVxZXRyIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczNDIwMDM3MiwiZXhwIjoyMDQ5Nzc2MzcyfQ.9hTOd76a0rjjiZOZy8Hb6GKP0JXWCz6qyx4lQtoFgFU';
+      return supabase.createClient(supabaseUrl, supabaseKey);
+    };
+
+    // Wait for the DOM to load before initializing Supabase
+    document.addEventListener('DOMContentLoaded', () => {
+      const supabase = initializeSupabase();
+
+      // DOM Elements
+      const uploadButton = document.getElementById('uploadButton');
+      const flashButton = document.getElementById('flashButton');
+      const codeFileInput = document.getElementById('codeFile');
+      const statusDiv = document.getElementById('status');
+
+      // Debugging: Check if elements are found
+      console.log('Upload Button:', uploadButton);
+      console.log('File Input:', codeFileInput);
+
+      // Upload Code Button Click
+      uploadButton.addEventListener('click', () => {
+        console.log('Upload button clicked'); // Debugging
+        codeFileInput.click(); // Trigger file input
+      });
+
+      // Handle File Upload
+      codeFileInput.addEventListener('change', async (event) => {
+        console.log('File selected'); // Debugging
+        const file = event.target.files[0];
+        if (!file) {
+          console.log('No file selected'); // Debugging
+          return;
+        }
+
+        statusDiv.textContent = 'Uploading...';
+        statusDiv.style.color = '#ffdd57'; // Yellow for uploading
+
+        try {
+          // Upload file to Supabase Storage
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('FOTA_DATA') // Your bucket name
+            .upload(`User_App.bin`, file , { upsert: true });
+
+          if (uploadError) throw uploadError;
+
+          statusDiv.textContent = 'Upload successful!';
+          statusDiv.style.color = '#4caf50'; // Green for success
+        } catch (error) {
+          console.error('Upload error:', error); // Debugging
+          statusDiv.textContent = `Error: ${error.message}`;
+          statusDiv.style.color = '#ff3860'; // Red for error
+        }
+      });
+
+      // Flash Code Button Click
+      flashButton.addEventListener('click', async () => {
+        statusDiv.textContent = 'Flashing...';
+        statusDiv.style.color = '#ffdd57'; // Yellow for flashing
+
+        try {
+          // Update the value to 1 in the database
+          const { data, error } = await supabase
+            .from('FOTA') // Your table name
+            .update({ value: 1 })
+            .neq('value', -1);
+            
+
+          if (error) throw error;
+
+          statusDiv.textContent = 'Flash request sent!';
+          statusDiv.style.color = '#4caf50'; // Green for success
+        } catch (error) {
+          console.error('Flash error:', error); // Debugging
+          statusDiv.textContent = `Error: ${error.message}`;
+          statusDiv.style.color = '#ff3860'; // Red for error
+        }
+      });
+    });
+  </script>
+</body>
+</html>
